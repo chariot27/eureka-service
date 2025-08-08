@@ -1,26 +1,18 @@
-# ⚙️ Etapa 1: Build da aplicação
+# ⚙️ Etapa 1: Build com cache
 FROM gradle:8.5-jdk17 AS builder
 
 WORKDIR /app
 
-# Copia todos os arquivos do projeto
+# Copia apenas os arquivos de configuração para cache de dependências
+COPY build.gradle settings.gradle gradle.properties ./
+COPY gradle ./gradle
+
+# Baixa as dependências em cache
+RUN gradle build --no-daemon || true
+
+# Agora copia o restante (código-fonte)
 COPY . .
 
-# Executa o build (gera o .jar)
-RUN gradle bootJar -x test
+# Gera o .jar
+RUN gradle bootJar -x test --no-daemon
 
-# 🐳 Etapa 2: Imagem final com JDK leve
-FROM eclipse-temurin:17-jdk-alpine
-
-WORKDIR /app
-
-# Copia o JAR gerado na etapa anterior
-COPY --from=builder /app/build/libs/*.jar app.jar
-# Define variáveis de ambiente padrão (override no Docker Run ou Render)
-ENV SERVER_PORT=8761
-
-# Expõe a porta configurada (Render usa isso)
-EXPOSE ${SERVER_PORT}
-
-# Comando para iniciar a aplicação
-ENTRYPOINT ["java", "-jar", "app.jar"]
